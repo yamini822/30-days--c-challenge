@@ -1,0 +1,459 @@
+/*
+ * CODE2THINK - CHALLENGE 10: ECOGUARD
+ * Campus Environmental Monitoring System
+ * SRM University-AP | CSE 101
+ *
+ * NOTE: Option 1 -> 2 loads SIMULATED SAMPLE DATA (not real campus readings).
+ */
+#include <stdio.h>
+
+#define ZONES 5
+#define DAYS 7
+
+/* ---------- Required prototypes ---------- */
+void inputData(float temp[ZONES][DAYS], float humidity[ZONES][DAYS], int aqi[ZONES][DAYS]);
+void displayData(float temp[ZONES][DAYS], float humidity[ZONES][DAYS], int aqi[ZONES][DAYS]);
+void calculateAverages(float temp[ZONES][DAYS], float humidity[ZONES][DAYS], int aqi[ZONES][DAYS],
+                       float avgTemp[ZONES], float avgHumidity[ZONES], float avgAQI[ZONES]);
+void detectRiskZones(float temp[ZONES][DAYS], float humidity[ZONES][DAYS], int aqi[ZONES][DAYS],
+                     int riskDays[ZONES]);
+void computeGreenIndex(float avgTemp[ZONES], float avgHumidity[ZONES], float avgAQI[ZONES],
+                       float greenIndex[ZONES]);
+void displayRanking(float greenIndex[ZONES]);
+void displayRecommendations(float avgTemp[ZONES], float avgHumidity[ZONES], float avgAQI[ZONES],
+                            int riskDays[ZONES]);
+
+/* ---------- Helper prototypes ---------- */
+void clearInput(void);
+void printZoneName(int z);
+float absDiff(float a, float b);
+float clampZero(float x);
+float readFloatInRange(const char *label, int zone, int day, float low, float high);
+int readIntInRange(const char *label, int zone, int day, int low, int high);
+void loadSampleData(float temp[ZONES][DAYS], float humidity[ZONES][DAYS], int aqi[ZONES][DAYS]);
+
+/* ================= main ================= */
+int main(void)
+{
+    float temp[ZONES][DAYS], humidity[ZONES][DAYS];
+    int aqi[ZONES][DAYS];
+    float avgTemp[ZONES], avgHumidity[ZONES], avgAQI[ZONES], greenIndex[ZONES];
+    int riskDays[ZONES];
+    int choice, mode;
+    int dataReady = 0;
+
+    do
+    {
+        printf("\n=========== ECOGUARD - CAMPUS ENVIRONMENT MONITOR ===========\n");
+        printf("1. Input / Update Data\n");
+        printf("2. Display Data\n");
+        printf("3. Zone-wise Averages\n");
+        printf("4. Detect Risk Days\n");
+        printf("5. Green Index and Ranking\n");
+        printf("6. Recommendations\n");
+        printf("7. Exit\n");
+        printf("Enter your choice: ");
+
+        mode = scanf("%d", &choice);
+        if (mode == EOF)
+            choice = 7;
+        else if (mode != 1)
+        {
+            clearInput();
+            choice = 0;
+        }
+
+        if (choice >= 2 && choice <= 6 && dataReady == 0)
+        {
+            printf("\nNo data entered yet. Please choose option 1 first.\n");
+            continue;
+        }
+
+        switch (choice)
+        {
+        case 1:
+            printf("\n1. Enter readings manually\n2. Load SIMULATED sample data\nChoose: ");
+            if (scanf("%d", &mode) != 1)
+            {
+                clearInput();
+                mode = 0;
+            }
+            if (mode == 1)
+            {
+                inputData(temp, humidity, aqi);
+                dataReady = 1;
+            }
+            else if (mode == 2)
+            {
+                loadSampleData(temp, humidity, aqi);
+                dataReady = 1;
+                printf("\n*** SIMULATED SAMPLE DATA loaded - NOT real campus measurements ***\n");
+            }
+            else
+                printf("Invalid option.\n");
+            break;
+
+        case 2:
+            displayData(temp, humidity, aqi);
+            break;
+
+        case 3:
+            calculateAverages(temp, humidity, aqi, avgTemp, avgHumidity, avgAQI);
+            {
+                int z;
+                printf("\n%-15s %10s %12s %8s\n", "Zone", "Avg Temp", "Avg Humidity", "Avg AQI");
+                printf("--------------------------------------------------\n");
+                for (z = 0; z < ZONES; z++)
+                {
+                    printZoneName(z);
+                    printf("%10.2f %12.2f %8.2f\n", avgTemp[z], avgHumidity[z], avgAQI[z]);
+                }
+            }
+            break;
+
+        case 4:
+            detectRiskZones(temp, humidity, aqi, riskDays);
+            break;
+
+        case 5:
+            calculateAverages(temp, humidity, aqi, avgTemp, avgHumidity, avgAQI);
+            computeGreenIndex(avgTemp, avgHumidity, avgAQI, greenIndex);
+            displayRanking(greenIndex);
+            break;
+
+        case 6:
+            calculateAverages(temp, humidity, aqi, avgTemp, avgHumidity, avgAQI);
+            detectRiskZones(temp, humidity, aqi, riskDays);
+            displayRecommendations(avgTemp, avgHumidity, avgAQI, riskDays);
+            break;
+
+        case 7:
+            printf("\nExiting EcoGuard. Stay green!\n");
+            break;
+
+        default:
+            printf("\nInvalid choice. Enter a number from 1 to 7.\n");
+        }
+    } while (choice != 7);
+
+    return 0;
+}
+
+/* ================= Helpers ================= */
+void clearInput(void)
+{
+    int c;
+    c = getchar();
+    while (c != '\n' && c != EOF)
+        c = getchar();
+}
+
+void printZoneName(int z)
+{
+    if (z == 0)
+        printf("%-15s", "Academic Block");
+    else if (z == 1)
+        printf("%-15s", "Hostel");
+    else if (z == 2)
+        printf("%-15s", "Library");
+    else if (z == 3)
+        printf("%-15s", "Cafeteria");
+    else
+        printf("%-15s", "Sports Area");
+}
+
+float absDiff(float a, float b)
+{
+    if (a > b)
+        return a - b;
+    else
+        return b - a;
+}
+
+float clampZero(float x)
+{
+    if (x < 0)
+        return 0;
+    return x;
+}
+
+float readFloatInRange(const char *label, int zone, int day, float low, float high)
+{
+    float value;
+    int ok;
+    do
+    {
+        printf("Zone %d, Day %d - %s: ", zone + 1, day + 1, label);
+        ok = scanf("%f", &value);
+        if (ok == EOF)
+        {
+            value = low;
+            ok = 1;
+        }
+        else if (ok != 1)
+        {
+            clearInput();
+            printf("  Invalid input. Enter a number.\n");
+        }
+        else if (value < low || value > high)
+        {
+            printf("  Out of range (%.0f to %.0f). Re-enter.\n", low, high);
+            ok = 0;
+        }
+    } while (ok != 1);
+    return value;
+}
+
+int readIntInRange(const char *label, int zone, int day, int low, int high)
+{
+    int value, ok;
+    do
+    {
+        printf("Zone %d, Day %d - %s: ", zone + 1, day + 1, label);
+        ok = scanf("%d", &value);
+        if (ok == EOF)
+        {
+            value = low;
+            ok = 1;
+        }
+        else if (ok != 1)
+        {
+            clearInput();
+            printf("  Invalid input. Enter a whole number.\n");
+        }
+        else if (value < low || value > high)
+        {
+            printf("  Out of range (%d to %d). Re-enter.\n", low, high);
+            ok = 0;
+        }
+    } while (ok != 1);
+    return value;
+}
+
+/* SIMULATED data for testing only. Includes AQI risk, temp risk,
+   humidity risk, a multi-trigger day and a no-risk zone. */
+void loadSampleData(float temp[ZONES][DAYS], float humidity[ZONES][DAYS], int aqi[ZONES][DAYS])
+{
+    float t[ZONES][DAYS] = {
+        {30, 31, 32, 33, 31, 30, 32},
+        {28, 29, 36, 37, 30, 29, 28},
+        {25, 26, 25, 24, 25, 26, 25},
+        {32, 33, 34, 35, 36, 33, 32},
+        {34, 36, 38, 37, 35, 34, 33}};
+    float h[ZONES][DAYS] = {
+        {60, 62, 65, 63, 61, 60, 64},
+        {70, 75, 82, 85, 72, 70, 71},
+        {50, 52, 51, 49, 50, 53, 50},
+        {55, 58, 60, 57, 56, 59, 58},
+        {45, 48, 50, 47, 46, 44, 45}};
+    int a[ZONES][DAYS] = {
+        {90, 100, 110, 120, 95, 105, 98},
+        {80, 85, 160, 170, 90, 88, 84},
+        {40, 45, 50, 42, 48, 44, 46},
+        {130, 140, 155, 160, 150, 145, 135},
+        {100, 110, 120, 130, 115, 105, 110}};
+    int z, d;
+    for (z = 0; z < ZONES; z++)
+        for (d = 0; d < DAYS; d++)
+        {
+            temp[z][d] = t[z][d];
+            humidity[z][d] = h[z][d];
+            aqi[z][d] = a[z][d];
+        }
+}
+
+/* ================= Required functions ================= */
+void inputData(float temp[ZONES][DAYS], float humidity[ZONES][DAYS], int aqi[ZONES][DAYS])
+{
+    int z, d;
+    printf("\nEnter readings (Temp 10-50 C, Humidity 0-100 %%, AQI 0-500)\n");
+    for (z = 0; z < ZONES; z++)
+    {
+        printf("\n--- Zone %d: ", z + 1);
+        printZoneName(z);
+        printf("---\n");
+        for (d = 0; d < DAYS; d++)
+        {
+            temp[z][d] = readFloatInRange("Temperature (C)", z, d, 10, 50);
+            humidity[z][d] = readFloatInRange("Humidity (%)", z, d, 0, 100);
+            aqi[z][d] = readIntInRange("AQI", z, d, 0, 500);
+        }
+    }
+    printf("\nData stored successfully.\n");
+}
+
+void displayData(float temp[ZONES][DAYS], float humidity[ZONES][DAYS], int aqi[ZONES][DAYS])
+{
+    int z, d;
+
+    printf("\n--- TEMPERATURE MATRIX (C) ---\n%-15s", "Zone");
+    for (d = 0; d < DAYS; d++)
+        printf("%7s%d", "Day", d + 1);
+    printf("\n");
+    for (z = 0; z < ZONES; z++)
+    {
+        printZoneName(z);
+        for (d = 0; d < DAYS; d++)
+            printf("%8.1f", temp[z][d]);
+        printf("\n");
+    }
+
+    printf("\n--- HUMIDITY MATRIX (%%) ---\n%-15s", "Zone");
+    for (d = 0; d < DAYS; d++)
+        printf("%7s%d", "Day", d + 1);
+    printf("\n");
+    for (z = 0; z < ZONES; z++)
+    {
+        printZoneName(z);
+        for (d = 0; d < DAYS; d++)
+            printf("%8.1f", humidity[z][d]);
+        printf("\n");
+    }
+
+    printf("\n--- AQI MATRIX ---\n%-15s", "Zone");
+    for (d = 0; d < DAYS; d++)
+        printf("%7s%d", "Day", d + 1);
+    printf("\n");
+    for (z = 0; z < ZONES; z++)
+    {
+        printZoneName(z);
+        for (d = 0; d < DAYS; d++)
+            printf("%8d", aqi[z][d]);
+        printf("\n");
+    }
+}
+
+void calculateAverages(float temp[ZONES][DAYS], float humidity[ZONES][DAYS], int aqi[ZONES][DAYS],
+                       float avgTemp[ZONES], float avgHumidity[ZONES], float avgAQI[ZONES])
+{
+    int z, d;
+    float sumT, sumH, sumA;
+    for (z = 0; z < ZONES; z++)
+    {
+        sumT = 0;
+        sumH = 0;
+        sumA = 0;
+        for (d = 0; d < DAYS; d++)
+        {
+            sumT += temp[z][d];
+            sumH += humidity[z][d];
+            sumA += aqi[z][d];
+        }
+        avgTemp[z] = sumT / DAYS;
+        avgHumidity[z] = sumH / DAYS;
+        avgAQI[z] = sumA / DAYS;
+    }
+}
+
+void detectRiskZones(float temp[ZONES][DAYS], float humidity[ZONES][DAYS], int aqi[ZONES][DAYS],
+                     int riskDays[ZONES])
+{
+    int z, d;
+    printf("\n--- RISK DAY REPORT (AQI>150 OR Temp>35 OR Humidity>80) ---\n");
+    for (z = 0; z < ZONES; z++)
+    {
+        riskDays[z] = 0;
+        printZoneName(z);
+        printf(": ");
+        for (d = 0; d < DAYS; d++)
+        {
+            if (aqi[z][d] > 150 || temp[z][d] > 35 || humidity[z][d] > 80)
+            {
+                riskDays[z]++;
+                printf("[Day %d] ", d + 1);
+            }
+        }
+        if (riskDays[z] == 0)
+            printf("No risk days");
+        printf("  -> Risk days: %d\n", riskDays[z]);
+    }
+}
+
+void computeGreenIndex(float avgTemp[ZONES], float avgHumidity[ZONES], float avgAQI[ZONES],
+                       float greenIndex[ZONES])
+{
+    int z;
+    float aqiScore, tempScore, humScore;
+    for (z = 0; z < ZONES; z++)
+    {
+        aqiScore = clampZero(100 - (avgAQI[z] / 5));
+        tempScore = clampZero(100 - 4 * absDiff(avgTemp[z], 25));
+        humScore = clampZero(100 - 2 * absDiff(avgHumidity[z], 50));
+        greenIndex[z] = 0.4f * aqiScore + 0.3f * tempScore + 0.3f * humScore;
+    }
+}
+
+void displayRanking(float greenIndex[ZONES])
+{
+    int order[ZONES], rank[ZONES];
+    int i, j, z, temp, better;
+
+    /* rank = 1 + number of zones with a strictly higher index (ties share rank) */
+    for (i = 0; i < ZONES; i++)
+    {
+        better = 0;
+        for (j = 0; j < ZONES; j++)
+            if (greenIndex[j] - greenIndex[i] > 0.0001f)
+                better++;
+        rank[i] = better + 1;
+        order[i] = i;
+    }
+
+    /* sort zone order by rank (selection sort) */
+    for (i = 0; i < ZONES - 1; i++)
+        for (j = i + 1; j < ZONES; j++)
+            if (rank[order[j]] < rank[order[i]])
+            {
+                temp = order[i];
+                order[i] = order[j];
+                order[j] = temp;
+            }
+
+    printf("\n--- GREEN INDEX RANKING (higher = better) ---\n");
+    printf("%-6s %-15s %s\n", "Rank", "Zone", "Green Index");
+    printf("------------------------------------\n");
+    for (i = 0; i < ZONES; i++)
+    {
+        z = order[i];
+        printf("%-6d ", rank[z]);
+        printZoneName(z);
+        printf("%.2f\n", greenIndex[z]);
+    }
+    printf("(Classroom comparison model, not an official environmental rating.)\n");
+}
+
+void displayRecommendations(float avgTemp[ZONES], float avgHumidity[ZONES], float avgAQI[ZONES],
+                            int riskDays[ZONES])
+{
+    int z, flagged;
+    printf("\n--- RECOMMENDATIONS ---\n");
+    for (z = 0; z < ZONES; z++)
+    {
+        flagged = 0;
+        printf("\n");
+        printZoneName(z);
+        printf("\n");
+        if (avgAQI[z] > 150)
+        {
+            printf("  - Average AQI is high: reduce vehicle idling or improve ventilation.\n");
+            flagged = 1;
+        }
+        if (avgTemp[z] > 35)
+        {
+            printf("  - Average temperature is high: add shade or green cover.\n");
+            flagged = 1;
+        }
+        if (avgHumidity[z] > 80)
+        {
+            printf("  - Average humidity is high: check ventilation or stagnant-water sources.\n");
+            flagged = 1;
+        }
+        if (flagged == 0)
+        {
+            if (riskDays[z] > 0)
+                printf("  - Only individual days were flagged (%d): review those dates.\n", riskDays[z]);
+            else
+                printf("  - No risk detected: continue monitoring.\n");
+        }
+    }
+}
