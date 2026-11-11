@@ -1,0 +1,64 @@
+Start the program.
+Make three tables (arrays) for temperature, humidity and AQI. Each has 5 zones and 7 days.
+Set dataReady = 0. This means no data has been entered yet.
+Show the menu and ask the user for a choice (1 to 7).
+If the choice is 2, 3, 4, 5 or 6 and the data is not entered, show “Enter data first” and go back to the menu.
+Otherwise, do what the choice says:
+1: Take the data from the user. Set dataReady = 1.
+2: Show the three tables.
+3: Find and show the averages for each zone.
+4: Find and show the risk days.
+5: Find the averages, then the Green Index, then show the ranking.
+6: Find the averages, then the risk days, then show the recommendations.
+7: Exit.
+Repeat from step 4 until the user chooses 7.
+Stop.
+Each function in simple steps
+
+1. inputData (take the data)
+
+For each zone and each day, ask for temperature, humidity and AQI.
+If a value is outside its range, show an error and ask again.
+Ranges: temperature 10 to 50, humidity 0 to 100, AQI 0 to 500.
+
+2. displayData (show the data)
+
+Print the temperature table, the humidity table and the AQI table.
+Rows are zones and columns are days.
+
+3. calculateAverages (find averages)
+
+For each zone, add up the 7 days of each reading.
+Divide each total by 7.
+
+4. detectRiskZones (find risk days)
+
+For each zone, check every day.
+A day is a risk day if AQI is above 150, or temperature is above 35, or humidity is above 80.
+Count each risk day only once, even if more than one condition is true.
+Print the count and the day numbers for each zone.
+
+5. computeGreenIndex (find the score)
+
+AQI score = 100 − (average AQI ÷ 5)
+Temperature score = 100 − 4 × (difference between average temperature and 25)
+Humidity score = 100 − 2 × (difference between average humidity and 50)
+“Difference” always means a positive number. If the result is negative, flip it with an if-else.
+If any score is below 0, make it 0.
+Green Index = 0.4 × AQI score + 0.3 × temperature score + 0.3 × humidity score
+
+6. displayRanking (rank the zones)
+
+For each zone, start with rank 1.
+Add 1 for every other zone that has a higher Green Index.
+Zones with equal scores get the same rank.
+Print the zones from best to worst, with rank and score.
+
+7. displayRecommendations (give advice)
+For each zone:
+
+If average AQI is above 150, advise “reduce vehicle idling or improve ventilation”.
+If average temperature is above 35, advise “add shade or green cover”.
+If average humidity is above 80, advise “check ventilation or stagnant water”.
+If none of the averages is high but some days were flagged, advise “review those days”.
+If there is no risk at all, advise “continue monitoring”.
